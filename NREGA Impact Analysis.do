@@ -43,7 +43,9 @@ histogram tehsilcultivator, bin(30) percent title("Density of tehsilcultivator")
 ssc install reghdfe
 ssc install ftools
 reghdfe famlab_rs had_nrega, absorb(tehsilcultivator year) cluster(tehsilcultivator)
-* NOTE: The above regression examines the impact of NREGA participation on farmland labor spending, controlling for farmer and time fixed effects. The results show that NREGA participation reduces labor spending by 316.6 units, which is quite a large decrease. Additionally, the "tehsilcultivator" fixed effect absorbs all differences across regions while the "year" fixed effect controls for time-specific external factors.
+* NOTE: The above regression examines the impact of NREGA participation on farmland labor spending, controlling for farmer and time fixed effects. 
+* The results show that NREGA participation reduces labor spending by 316.6 units, which is quite a large decrease. 
+* Additionally, the "tehsilcultivator" fixed effect absorbs all differences across regions while the "year" fixed effect controls for time-specific external factors.
 
 egen p25_atchdlab = pctile(atchdlab_rs), p(25)
 egen p75_atchdlab = pctile(atchdlab_rs), p(75)
@@ -63,3 +65,21 @@ drop p25_casuallab p75_casuallab iqr_casuallab lower_casuallab upper_casuallab
 gen log_atchdlab = log(atchdlab_rs)
 histogram log_atchdlab, bin(30) percent title("Log-Transformed Density of atchdlab_rs") xlabel(, grid)
 histogram casuallab_rs, bin(30) percent title("Density of casuallab_rs") xlabel(, grid)
+
+gen total_lab_costs = famlab_rs + atchdlab_rs + casuallab_rs
+gen total_lab_costs_2005 = .
+
+bysort farmerid (year): replace total_lab_costs_2005 = total_lab_costs if year == 2005
+bysort farmerid (year total_lab_costs): replace total_lab_costs_2005 = ///  
+total_lab_costs_2005[_n-1] if missing(total_lab_costs_2005)
+gen norm_lab_costs = total_lab_costs / total_lab_costs_2005
+* NOTE: Each farm's total labor costs in 2005 are assigned to the "total_lab_costs_2005" variable. 
+* If this value is missing for later years, it is filled in using the previous year's value for the same farm.
+* The "norm_lab_costs" variable divides each year's total labor cost by the 2005 value, showing labor costs relative to the 2005 baseline.
+
+keep if (phase == 2 | phase == 3) & (year == 2005 | year == 2006)
+gen treated = (phase == 2)
+gen post = (year == 2006)
+gen did = treated * post
+
+reghdfe norm_lab_costs did, absorb(farmerid year) cluster(farmerid)
